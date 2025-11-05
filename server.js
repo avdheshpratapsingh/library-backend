@@ -28,6 +28,7 @@ const studentSchema = new mongoose.Schema({
   feePaid: { type: Boolean, default: false },
   joinDate: Date,
   fee: { type: Number, default: 500 },
+  shift: { type: String, default: "" },
 });
 
 const Student = mongoose.model('Student', studentSchema);
@@ -42,7 +43,7 @@ app.get('/students', async (req, res) => {
 
 // Add or edit student
 app.post('/students', async (req, res) => {
-  const { seat, name, mobile, joinDate, fee, attendance, feePaid } = req.body;
+  const { seat, name, mobile, joinDate, fee, attendance, feePaid, shift } = req.body;
   let student = await Student.findOne({ seat });
   if (student) {
     student.name = name;
@@ -51,9 +52,10 @@ app.post('/students', async (req, res) => {
     student.fee = fee ?? 500;
     student.attendance = attendance ?? false;
     student.feePaid = feePaid ?? false;
+    student.shift = shift ?? "";
     await student.save();
   } else {
-    student = new Student({ seat, name, mobile, joinDate, fee });
+    student = new Student({ seat, name, mobile, joinDate, fee, shift });
     await student.save();
   }
   res.json(student);
