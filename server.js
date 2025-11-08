@@ -45,19 +45,36 @@ const Student = mongoose.model('Student', studentSchema);
 // Routes
 
 // Get all students
+// Get all students
 app.get('/students', async (req, res) => {
-  const students = await Student.find();
-  res.json(students);
-});
+  try {
+    const students = await Student.find();
 
-// Auto-create current month if missing
-const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-students.forEach(async (student) => {
-  if (!student.paymentHistory.some(h => h.month === currentMonth)) {
-    student.paymentHistory.push({ month: currentMonth, paid: false });
-    await student.save();
+    // Automatically add current month record if missing
+    const currentMonth = new Date().toLocaleString('default', {
+      month: 'long',
+      year: 'numeric',
+    });
+
+    for (const student of students) {
+      if (!student.paymentHistory) student.paymentHistory = [];
+
+      const alreadyHas = student.paymentHistory.some(
+        (h) => h.month === currentMonth
+      );
+      if (!alreadyHas) {
+        student.paymentHistory.push({ month: currentMonth, paid: false });
+        await student.save();
+      }
+    }
+
+    res.json(students);
+  } catch (err) {
+    console.error('Error fetching students:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 
 app.get('/students/:seat/history', async (req, res) => {
