@@ -228,6 +228,36 @@ app.post("/students/:seat/pay", async (req, res) => {
       datePaid: new Date(),
     });
   }
+  // ✅ Monthly Summary Endpoint
+app.get('/summary/:month', async (req, res) => {
+  const { month } = req.params;
+  const students = await Student.find();
+
+  let totalFee = 0, totalPaid = 0, paidCount = 0, dueCount = 0;
+
+  students.forEach((s) => {
+    totalFee += s.fee ?? 0;
+    const record = s.paymentHistory?.find((p) => p.month === month);
+    const paid = record?.paid ?? false;
+
+    if (paid) {
+      totalPaid += s.fee ?? 0;
+      paidCount++;
+    } else {
+      dueCount++;
+    }
+  });
+
+  res.json({
+    month,
+    totalFee,
+    totalPaid,
+    totalDue: totalFee - totalPaid,
+    paidCount,
+    dueCount,
+  });
+});
+
 
   await student.save();
   res.json({ success: true, student });
