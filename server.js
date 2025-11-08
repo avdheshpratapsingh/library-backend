@@ -29,6 +29,16 @@ const studentSchema = new mongoose.Schema({
   joinDate: Date,
   fee: { type: Number, default: 500 },
   shift: { type: String, default: "" },
+
+  paymentHistory: [
+    {
+      month: String, // e.g., "Nov 2025"
+      paid: Boolean,
+      amount: Number,
+      datePaid: Date,
+    },
+  ],
+
 });
 
 const Student = mongoose.model('Student', studentSchema);
@@ -113,6 +123,33 @@ app.delete('/students/:seat', async (req, res) => {
   res.json({ message: 'Deleted successfully' });
 });
 
+
+// Record payment for a specific month
+app.post("/students/:seat/pay", async (req, res) => {
+  const { seat } = req.params;
+  const { month, amount } = req.body;
+
+  const student = await Student.findOne({ seat });
+  if (!student) return res.status(404).json({ error: "Student not found" });
+
+  // Update or add payment entry
+  const existing = student.paymentHistory.find((p) => p.month === month);
+  if (existing) {
+    existing.paid = true;
+    existing.amount = amount;
+    existing.datePaid = new Date();
+  } else {
+    student.paymentHistory.push({
+      month,
+      paid: true,
+      amount,
+      datePaid: new Date(),
+    });
+  }
+
+  await student.save();
+  res.json({ success: true, student });
+});
 // Start server
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
