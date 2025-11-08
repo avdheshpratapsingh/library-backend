@@ -30,14 +30,13 @@ const studentSchema = new mongoose.Schema({
   fee: { type: Number, default: 500 },
   shift: { type: String, default: "" },
 
-  paymentHistory: [
+    paymentHistory: [
     {
-      month: String, // e.g., "Nov 2025"
-      paid: Boolean,
-      amount: Number,
-      datePaid: Date,
-    },
-  ],
+      month: String, // e.g. "November 2025"
+      paid: { type: Boolean, default: false },
+      date: { type: Date, default: Date.now }
+    }
+  ]
 
 });
 
@@ -51,10 +50,20 @@ app.get('/students', async (req, res) => {
   res.json(students);
 });
 
+app.get('/students/:seat/history', async (req, res) => {
+  const { seat } = req.params;
+  const student = await Student.findOne({ seat });
+  if (!student) return res.status(404).json({ error: 'Student not found' });
+  res.json(student.paymentHistory || []);
+});
+
+
 // Add or edit student
 app.post('/students', async (req, res) => {
   const { seat, name, mobile, joinDate, fee, attendance, feePaid, shift } = req.body;
   let student = await Student.findOne({ seat });
+  const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  
   if (student) {
     student.name = name;
     student.mobile = mobile;
@@ -63,9 +72,20 @@ app.post('/students', async (req, res) => {
     student.attendance = attendance ?? false;
     student.feePaid = feePaid ?? false;
     student.shift = shift ?? "";
+    
+ if (!student.paymentHistory.some(h => h.month === currentMonth)) {
+      student.paymentHistory.push({ month: currentMonth, paid: feePaid ?? false });
+    }
+
     await student.save();
-  } else {
-    student = new Student({ seat, name, mobile, joinDate, fee, shift });
+  } 
+  
+  
+  
+  else {
+    student = new Student({ seat, name, mobile, joinDate, fee, shift, attendance,feePaid, 
+     paymentHistory: [{ month: currentMonth, paid: feePaid ?? false  }]
+    });
     await student.save();
   }
   res.json(student);
@@ -82,14 +102,25 @@ app.patch('/students/:seat/attendance', async (req, res) => {
 });
 
 // Toggle feePaid
-app.patch('/students/:seat/fee', async (req, res) => {
-  const { seat } = req.params;
+// Toggle payment for a specific month
+app.patch('/students/:seat/payment/:month', async (req, res) => {
+  const { seat, month } = req.params;
   const student = await Student.findOne({ seat });
   if (!student) return res.status(404).json({ error: 'Student not found' });
-  student.feePaid = !student.feePaid;
+
+  const record = student.paymentHistory.find(h => h.month === month);
+  if (record) {
+    record.paid = !record.paid;
+    record.date = new Date();
+  } else {
+    student.paymentHistory.push({ month, paid: true });
+  }
+
   await student.save();
   res.json(student);
 });
+
+
 app.post('/students/:seat/send-alert', async (req, res) => {
   const { seat } = req.params;
   const { customMessage } = req.body; // optional custom message
