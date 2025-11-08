@@ -50,6 +50,16 @@ app.get('/students', async (req, res) => {
   res.json(students);
 });
 
+// Auto-create current month if missing
+const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+students.forEach(async (student) => {
+  if (!student.paymentHistory.some(h => h.month === currentMonth)) {
+    student.paymentHistory.push({ month: currentMonth, paid: false });
+    await student.save();
+  }
+});
+
+
 app.get('/students/:seat/history', async (req, res) => {
   const { seat } = req.params;
   const student = await Student.findOne({ seat });
@@ -114,6 +124,30 @@ app.patch('/students/:seat/payment/:month', async (req, res) => {
     record.date = new Date();
   } else {
     student.paymentHistory.push({ month, paid: true });
+  }
+
+  await student.save();
+  res.json(student);
+});
+
+// Add or update fee history for a specific month
+app.patch('/students/:seat/fee-history', async (req, res) => {
+  const { seat } = req.params;
+  const { month, paid } = req.body;
+
+  if (!month) return res.status(400).json({ error: 'Month is required' });
+
+  const student = await Student.findOne({ seat });
+  if (!student) return res.status(404).json({ error: 'Student not found' });
+
+  // Initialize if not present
+  if (!student.feeHistory) student.feeHistory = [];
+
+  const idx = student.feeHistory.findIndex(entry => entry.month === month);
+  if (idx >= 0) {
+    student.feeHistory[idx].paid = paid;
+  } else {
+    student.feeHistory.push({ month, paid });
   }
 
   await student.save();
